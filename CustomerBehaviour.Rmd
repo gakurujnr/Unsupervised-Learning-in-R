@@ -1,0 +1,563 @@
+---
+title: "CustomerBehaviour"
+author: "Gakuru"
+date: "04/11/2019"
+output: html_document
+---
+
+```{r}
+## Importing Libraries
+##
+# Importing the relvant libaries
+
+library(remotes)
+library(pacman) ## For loading packages
+library(gmodels)
+library(outliers)
+library(tidyverse)
+library(xgboost)
+## library(corrplot)
+library(ggplot2)
+library(caret)
+library(class)
+## The objective of this package is to perform statistical inference using
+## an expressive statistical grammar that coheres with the tidyverse design framework.
+library(infer)
+library(dplyr)
+library(DataExplorer)  ## Exploring the Dataset
+library(CatEncoders)
+
+```
+
+```{r}
+
+## Loading The Dataset
+df = read.csv('online_shoppers_intention.csv')
+
+head(df)
+
+```
+
+```{r}
+## Getting to know the Information of the Dataset
+
+## Viewing the columns of the dataset
+attributes(df)$names
+
+## We have 18 columns 10 numerical and 8 are categorical
+```
+
+```{r}
+## View the class of the dataset
+attributes(df)$class
+
+## It's class is a dataframe
+```
+
+```{r}
+## Viewing the data type of the columns
+glimpse(df)
+
+## 10 numerical and 8 categorical
+```
+
+```{r}
+## Shape of the dataset in Rows and Columns
+dim(df)
+
+## We have 12330 rows and 18 columns
+```
+
+```{r}
+## Summary of numeric columns
+
+df %>%
+  select_if(is.numeric) %>%
+  map(~summary(.))
+## The Min, 1st Qu, Median, 3rd Qu and Max
+```
+
+```{r}
+## Summary of categorical columns
+
+df %>%
+  select_if(is.factor) %>%
+  map(~summary(.))
+
+## The summary has the categorical columns and there unnique values
+```
+
+
+
+```{r}
+# Generate comprehensive report
+## Report
+create_report(df)
+
+
+```
+
+## DATA CLEANING
+
+```{r}
+
+# Changing names of columns to lowercase
+colnames(df) <- tolower(colnames(df))
+colnames(df)
+
+```
+
+```{r}
+## Checking for missing values in the dataset
+is.na(df)
+
+## Presence of missing values
+```
+
+```{r}
+## Sum of null values in the dataset
+sum(is.na(df))
+
+## We have 112 missing values
+```
+
+```{r}
+## Explore the dataset
+data(df)
+plot_missing(df)
+
+## The plot is 0% and o.11% where the missing values are equally distributed on attributes with missing values
+```
+
+```{r}
+
+## Sum of missing values per column
+colSums(is.na(df))
+
+## Most of the columns with missing values are equally distributed in different columns and it's 14
+
+```
+
+```{r}
+## Administrative
+df$Administrative[is.na (df$Administrative)] <- mean(df$Administrative,na.rm = TRUE)
+
+## Administrative_DUration
+df$Administrative_Duration[is.na (df$Administrative_Duration)] <- mean(df$Administrative_Duration,na.rm = TRUE)
+
+## Informational
+df$Informational[is.na (df$Informational)] <- mean(df$Informational,na.rm = TRUE)
+
+## Informational_Duration
+df$Informational_Duration[is.na (df$Informational_Duration)] <- mean(df$Informational_Duration,na.rm = TRUE)
+
+## ProductRelated
+df$ProductRelated[is.na (df$ProductRelated)] <- mean(df$ProductRelated,na.rm = TRUE)
+
+## ProductRelated_Duration
+df$ProductRelated_Duration[is.na (df$ProductRelated_Duration)] <- mean(df$ProductRelated_Duration,na.rm = TRUE)
+
+## BounceRates
+df$BounceRates[is.na (df$BounceRates)] <- mean(df$BounceRates,na.rm = TRUE)
+
+## ExitRates
+df$ExitRates[is.na (df$ExitRates)] <- mean(df$ExitRates,na.rm = TRUE)
+
+## fill missing values with mean
+```
+
+```{r}
+## Confriming if the missing values are filled
+colSums(is.na(df))
+
+## There are no missing values
+```
+
+```{r}
+## Explore the dataset
+data(df)
+plot_missing(df)
+
+## The plot is 0% as I have replaced the missing values with the mean
+```
+
+```{r}
+## Checking for duplicates
+anyDuplicated(df)
+
+## We have 159 duplicates
+
+```
+
+```{r}
+options(repr.plot.width=10, repr.plot.height=5)
+boxplot(df[, c(1:4)], col="cadetblue")
+boxplot(df[, c(5:8)], col="burlywood4")
+boxplot(df[, c(9:13)], col="coral4")
+boxplot(df[, c(14,15)], col="antiquewhite4")
+## boxplot(df)
+## We have outliers in the dataset and won't remove the outliers as they can alter modelling and accuracy
+
+```
+
+```{r}
+# Checking outliers using boxplots on ProductRelated
+boxplot(df$ProductRelated,main = "Boxplot on ProductRelated ")
+
+## Presence of outliers and won't drop as you cannot assume it's importance
+```
+
+```{r}
+# Checking outliers using boxplots on Administrative
+boxplot(df$Administrative,main = "Boxplot on Administrative ")
+
+## Presence of outliers and won't drop as you cannot assume it's importance
+```
+
+```{r}
+# Checking outliers using boxplots on Administrative_Duration
+boxplot(df$Administrative_Duration,main = "Boxplot on Administrative_Duration ")
+
+## Presence of outliers and won't drop as you cannot assume it's importance
+```
+
+```{r}
+# Checking outliers using boxplots on ProductRelated_Duration
+boxplot(df$ProductRelated_Duration,main = "Boxplot on ProductRelated_Duration ")
+
+## Presence of outliers and won't drop as you cannot assume it's importance
+```
+
+## Exploratory Data Analysis(EDA)
+
+## Variable Importance
+```{r}
+library(rpart)
+library(rpart.plot)
+
+# DECISION TREE TO CHECK VARIABLE IMPORTANCE
+tree <- rpart( Revenue ~ . , data = df, method = "class")
+
+# display the results
+printcp(tree)
+plotcp(tree)
+summary(tree)
+
+```
+
+```{r}
+rpart.plot(tree)
+```
+
+```{r}
+printcp(tree)
+```
+## Univariate
+This type of data consists of only one variable
+It does not deal with causes or relationships and the main purpose of the analysis is to describe the data and find patterns that exist within it
+
+```{r}
+## Boxplot that shows distribution of months
+plot(df$Month, ylab ='total counts', xlab = ' Months', main = 'Frequency distribution in each month', col = 'Blue',border="Blue")
+
+# From the graph the of May, November and March: 3364, 2998 and 1907  respectively had the highest number of products bought by customers
+## comparing which month  the customer visited most
+```
+
+
+
+
+```{r}
+## Checking for outliers per month
+plot(df$Month, df$Region ,col = 'blue')
+
+# Feb had the highest number of outlier than  any other month
+# July,September and December had no outliers
+```
+
+```{r}
+## Boxplot that shows distribution of months
+plot(df$VisitorType, ylab ='total counts', xlab = ' VisitorType', main = 'Frequency distribution in VisitorType', col = 'Blue',border="Blue")
+
+## Visitors that bought items from outlets were led by Returning visitors are the most, followed by new visitors while others are the list visitors
+```
+
+```{r}
+## COnverting variables into categorical variables
+categorical_cols <- c(df$Region <- as.factor(df$Region),
+df$VisitorType <- as.factor(df$VisitorType),
+df$Weekend <- as.factor(df$Weekend),
+df$OperatingSystems <- as.factor(df$OperatingSystems),
+df$Informational <- as.factor(df$Informational),
+df$ProductRelated <- as.factor(df$ProductRelated),
+df$SpecialDay <- as.factor(df$SpecialDay),
+df$Administrative <- as.factor(df$Administrative))
+
+```
+
+```{r}
+## Organising numerical and categorical variables
+categorical_cols = select_if(df, is.factor)
+numeric_cols = select_if(df, is.numeric)
+
+```
+
+```{r}
+## Viewing the categorical 
+categorical_cols
+
+```
+
+```{r}
+## Viewing the numerical
+numeric_cols
+
+
+```
+
+```{r}
+## Histogram of numerical variables of column informational
+hist(numeric_cols$Informational, main = "Histogram of Informational", col = "Blue", border = "Green")
+
+```
+
+```{r}
+## Histogram of numerical variables of column informational
+hist(numeric_cols$ExitRates, main = "Histogram of ExitRates", col = "Blue", border = "Green")
+
+```
+
+```{r}
+## Histogram of numerical variables of column informational
+hist(categorical_cols$Weekend, main = "Histogram of Revenue", col = "Blue", border = "Green")
+
+```
+
+```{r}
+colnames(df, do.NULL = TRUE, prefix = "col")
+```
+
+## Bivariate
+This type of data involves two different variables.
+The analysis of this type of data deals with causes and relationships and the analysis is done to find out the relationship among the two variables
+Bivariate data analysis involves comparisons, relationships, causes and explanations.
+
+```{r}
+
+```
+
+## Multivariate Analysis
+When the data involves three or more variables.
+Techniques are regression analysis,path analysis,factor analysis and multivariate analysis of variance 
+
+```{r}
+
+```
+
+## Principal Component Analysis (PCA)
+Is a method of extracting important variables (in form of components) from 
+a large set of variables available in a data set. 
+
+It extracts low dimensional set of features from a high dimensional data set with a motive to capture as much information as possible
+
+```{r}
+## Get dummies for categorical variables
+library(caret)
+df$Weekend = factor(df$Weekend, levels = c('FALSE', 'TRUE'),labels = c(0, 1),options(max.print = 999999 ))
+df$Weekend
+
+## 
+```
+
+
+```{r}
+## converting factor variables into numerical
+cols =  names(which(sapply(df, is.factor)))
+
+for(i in cols)
+  {
+  encode <- LabelEncoder.fit(df[,i])
+    df[,i]<- transform(encode,df[,i])
+}
+
+```
+
+```{r}
+## Checking it has changed to numerical variables
+str(df)
+
+```
+
+
+```{r}
+## Dropping the Target variable which is Revenue
+df1 <- df[,!(names(df)%in% c("Revenue"))]
+head(df1)
+```
+
+```{r}
+## Performing PCA on the dataset
+df1.pca <- prcomp(df1, center = TRUE, scale = TRUE)
+
+summary(df1.pca)
+
+## Shows the importance of components, You obtain 17 principal components, which you call PC1-17.
+## Each of these explains a percentage of the total variation in the dataset.
+## PC1 explains 20% of the total variance
+## Sample in relation to just PC1 and PC2, you can get a very accurate view on where it stands in relation to other samples, as just PC1 and PC2 can explain 31% of the variance.
+```
+
+
+```{r}
+str(df1.pca)
+
+## It lists down the objects that runs in the pca where we have; Standard Deviation, Rotation, attributes e.t.c
+```
+
+```{r}
+## Plotting a graph of variance against Principal Components (PCs)
+plot(df1.pca, type = "l" ,col = "Blue", main = " variance  against PCs")
+
+## As variance of the Principal Components decreases so as the number of PCs increases and vice versa
+## As PCs decrease so as Variance increase according to the PCA Summaries
+```
+
+```{r}
+biplot(df1.pca)
+```
+
+## T-SNE (t- Distribution Stochastic Neighbour Embedding)
+
+```{r}
+## Installing Rtnse package
+install.packages("Rtsne")
+
+## Libraries
+
+library(Rtsne)
+
+```
+
+```{r}
+## Removing the target/class variable(species)
+new = df1[,c(1:17)]
+str(new)
+
+```
+
+
+```{r}
+## storing Class variable in another vriable
+df.class = df[, "Revenue"]
+head(df.class)
+
+# Curating the database for analysis 
+Labels <- df.class
+df.class <- as.factor(df.class)
+```
+## T-SNE
+
+```{r}
+## Removing duplicates
+sum(duplicated(df1))
+##
+# Remove duplicate rows of the dataframe using carb variable
+distinct(df1, carb, .keep_all= TRUE)
+
+```
+
+
+```{r}
+# For plotting
+#
+colors = rainbow(length(unique(df.class)))
+names(colors) = unique(df.class)
+
+
+# Executing the algorithm on curated data
+# 
+tsne <- Rtsne(df1[,-1], dims = 2, perplexity=30, verbose=TRUE, max_iter = 500)
+```
+
+```{r}
+install.packages("car")
+```
+
+```{r}
+library(car)
+
+options(repr.plot.width=7, repr.plot.height=5)
+par(mfrow = c(1,2), mar=c(5,4,2,2))
+plot(sample(df1$PageValues, 6000),sample(df1$BounceRates, 6000), xlab="Page Value", ylab="Bounce Rates", col="coral")
+plot(sample(df1$ExitRates, 6000),sample(df1$BounceRates, 6000), xlab="Exit Rates", ylab="Bounce Rates", col="burlywood4")
+
+## BounceRate against PageValue is highly scattered in the left while BounceRates against ExitRates is somehow distributed everywhere
+```
+
+## K-Means
+
+```{r}
+## To create a beautiful graph of the clusters generated with the kmeans() function, will use the factoextra package.
+
+install.packages("factoextra")
+
+## Loading factoextra
+library(factoextra)
+
+# Compute k-means with k = 4
+set.seed(123)
+km.res <- kmeans(df1, 4, nstart = 25)
+
+
+## previewing the size
+km.res$size
+```
+
+```{r}
+
+options(repr.otpions.width=7, repr.options.height=5)
+fviz_nbclust(df1, kmeans, method = 'wss') + 
+  geom_vline(xintercept = 4, linetype = 3) + 
+  labs(x = 'Number of clusters', y = 'Weighted cluster sum of squares(wss)')
+
+
+## The plot above represents the variance within the clusters. It decreases as k increases, but it can be seen a bend at k = 4. This bend indicates that additional clusters beyond the fourth have little value.
+```
+
+
+```{r}
+# Print the results
+print(km.res)
+
+
+## the cluster means or centers: a matrix, which rows are cluster number (1 to 4) and columns are variables
+## the clustering vector: A vector of integers (from 1:k) indicating the cluster to which each point is allocated
+```
+
+
+```{r}
+## compute the mean of each variables by clusters using the original data:
+
+aggregate(df1, by=list(cluster=km.res$cluster), mean)
+
+
+```
+
+```{r}
+## If you want to add the point classifications to the original data
+
+dd <- cbind(df1, cluster = km.res$cluster)
+head(dd)
+
+```
+
+```{r}
+## Plotting of Cluster Dendrogram
+dis <- dist(df1, method="euclidean")
+
+hclus <- hclust(dis, method="ward.D2")
+###
+
+options(repr.plot.width=10, repr.plot.height=9)
+plot(hclus, cex=0.6, hang=-2, col="dark red")
+```
